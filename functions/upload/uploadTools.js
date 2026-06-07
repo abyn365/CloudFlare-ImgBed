@@ -31,34 +31,51 @@ export function generateShortId(length = 8) {
     return result;
 }
 
-// 获取IP地址（通过 Cloudflare speed.cloudflare.com/meta）
+// 获取IP地址（通过 ip.abyn.xyz/api/trace）
 export async function getIPAddress(ip) {
     let address = 'unknown';
 
     try {
-        const metaResponse = await fetch('https://speed.cloudflare.com/meta');
-        if (!metaResponse.ok) {
+        // 构建请求 URL，如果提供了 IP 则传入查询参数
+        let apiUrl = 'https://ip.abyn.xyz/api/trace?vpn=1';
+        if (ip) {
+            apiUrl += `&ip=${encodeURIComponent(ip)}`;
+        }
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
             return address;
         }
 
-        const metaData = await metaResponse.json();
-        if (!metaData || typeof metaData !== 'object') {
+        const data = await response.json();
+        if (!data || typeof data !== 'object' || !data.ok) {
             return address;
         }
 
-        // 优先拼接 city / region / country / postalCode，过滤空字段
-        const locationParts = [
-            metaData.city,
-            metaData.region,
-            metaData.country,
-            metaData.postalCode
-        ].map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+        // 优先从 vpn.location 获取 IP 所在位置的详细地址（已解码）
+        // 如果不可用，则回退到 visitor 数据（请求者位置，字段可能为 URL 编码）
+        const location = data.vpn?.location || data.visitor || null;
+        if (location) {
+            const locationParts = [
+                location.city,
+                location.region,
+                location.country
+            ].map(item => {
+                if (typeof item !== 'string' || !item.trim()) return '';
+                // 部分字段（如 visitor.city）可能为 URL 编码，需要解码
+                try {
+                    return decodeURIComponent(item.trim());
+                } catch {
+                    return item.trim();
+                }
+            }).filter(Boolean);
 
-        if (locationParts.length > 0) {
-            address = locationParts.join(', ');
+            if (locationParts.length > 0) {
+                address = locationParts.join(', ');
+            }
         }
     } catch (error) {
-        console.error('Error fetching IP address from Cloudflare meta:', error);
+        console.error('Error fetching IP address from ip.abyn.xyz/trace:', error);
     }
 
     return address;
