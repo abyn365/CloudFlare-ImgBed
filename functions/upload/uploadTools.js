@@ -301,9 +301,9 @@ export async function moderateContent(env, url) {
             const moderate_data = await fetchResponse.json();
 
             const score = moderate_data.score || 0;
-            if (score >= 0.7) {
+            if (score >= 0.5) {
                 label = "adult";
-            } else if (score >= 0.5) {
+            } else if (score >= 0.4) {
                 label = "teen";
             } else {
                 label = "everyone";
