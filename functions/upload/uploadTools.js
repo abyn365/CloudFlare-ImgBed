@@ -33,7 +33,7 @@ export function generateShortId(length = 8) {
 
 // 获取IP地址（通过 Cloudflare speed.cloudflare.com/meta）
 export async function getIPAddress(ip) {
-    let address = '未知';
+    let address = 'unknown';
 
     try {
         const metaResponse = await fetch('https://speed.cloudflare.com/meta');
