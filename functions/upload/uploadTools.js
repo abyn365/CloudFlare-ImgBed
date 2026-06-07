@@ -31,34 +31,36 @@ export function generateShortId(length = 8) {
     return result;
 }
 
-// 获取IP地址
+// 获取IP地址（通过 Cloudflare speed.cloudflare.com/meta）
 export async function getIPAddress(ip) {
     let address = '未知';
+
     try {
-        const ipInfo = await fetch(`https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${ip}`);
-        const ipData = await ipInfo.json();
+        const metaResponse = await fetch('https://speed.cloudflare.com/meta');
+        if (!metaResponse.ok) {
+            return address;
+        }
 
-        if (ipInfo.ok && ipData.data) {
-            const lng = ipData.data?.lng || 0;
-            const lat = ipData.data?.lat || 0;
+        const metaData = await metaResponse.json();
+        if (!metaData || typeof metaData !== 'object') {
+            return address;
+        }
 
-            // 读取具体地址
-            const addressInfo = await fetch(`https://apimobile.meituan.com/group/v1/city/latlng/${lat},${lng}?tag=0`);
-            const addressData = await addressInfo.json();
+        // 优先拼接 city / region / country / postalCode，过滤空字段
+        const locationParts = [
+            metaData.city,
+            metaData.region,
+            metaData.country,
+            metaData.postalCode
+        ].map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
 
-            if (addressInfo.ok && addressData.data) {
-                // 根据各字段是否存在，拼接地址
-                address = [
-                    addressData.data.detail,
-                    addressData.data.city,
-                    addressData.data.province,
-                    addressData.data.country
-                ].filter(Boolean).join(', ');
-            }
+        if (locationParts.length > 0) {
+            address = locationParts.join(', ');
         }
     } catch (error) {
-        console.error('Error fetching IP address:', error);
+        console.error('Error fetching IP address from Cloudflare meta:', error);
     }
+
     return address;
 }
 
